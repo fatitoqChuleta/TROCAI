@@ -34,11 +34,21 @@ function updateAccount(){
   b.textContent=user?(user.user_metadata?.name||user.email?.split('@')[0]||'Minha conta'):'Entrar / criar conta';
   const old=$('#proposalsBtn');
   if(old)old.remove();
+  const oldNotifications=$('#notificationsBtn');
+  if(oldNotifications)oldNotifications.remove();
   if(user){
+    const noticeBtn=document.createElement('button');
+    noticeBtn.className='textbtn notification-nav';
+    noticeBtn.id='notificationsBtn';
+    noticeBtn.innerHTML='♧ Notificações <span id="notificationCount" class="notification-count" hidden>0</span>';
+    noticeBtn.addEventListener('click',openNotifications);
+    $('#accountBtn').insertAdjacentElement('beforebegin',noticeBtn);
+
     const btn=document.createElement('button');
     btn.className='textbtn';btn.id='proposalsBtn';btn.textContent='Minhas propostas';
     btn.addEventListener('click',openProposals);
     $('#accountBtn').insertAdjacentElement('beforebegin',btn);
+    loadNotificationCount();
   }
 }
 function authForm(mode='login'){
@@ -167,44 +177,66 @@ async function loadProposals(){
   }
 }
 
-async function respondProposal(id, status) {
-  const action = status === 'accepted' ? 'aceitar' : 'recusar';
-
-  if (!confirm(`Tem certeza de que deseja ${action} esta proposta?`)) return;
-
-  try {
-    const updated = await api(
-      `swap_proposals?id=eq.${encodeURIComponent(id)}&owner_id=eq.${encodeURIComponent(user.id)}&status=eq.pending`,
-      {
-        method: 'PATCH',
-        body: {
-          status,
-          updated_at: new Date().toISOString()
-        },
-        headers: {
-          Prefer: 'return=representation'
-        }
-      }
-    );
-
-    if (!Array.isArray(updated) || updated.length === 0) {
-      throw new Error(
-        'Nenhuma proposta foi atualizada. Verifique as permissões de UPDATE da tabela swap_proposals no Supabase.'
-      );
-    }
-
-    toast(
-      status === 'accepted'
-        ? 'Proposta aceita com sucesso!'
-        : 'Proposta recusada com sucesso!'
-    );
-
-    await loadProposals();
-
-  } catch (e) {
-    console.error('Erro ao responder proposta:', e);
-    toast('Não foi possível atualizar a proposta: ' + e.message);
+async function loadNotificationCount(){
+  if(!user||!token)return;
+  try{
+    const rows=await api(`swap_notifications?select=id&recipient_id=eq.${encodeURIComponent(user.id)}&is_read=eq.false&limit=100`);
+    const badge=$('#notificationCount');
+    if(!badge)return;
+    badge.textContent=String(rows.length);
+    badge.hidden=rows.length===0;
+  }catch(e){
+    console.warn('Não foi possível atualizar o contador de notificações:',e.message);
   }
+}
+async function openNotifications(){
+  if(!user){authForm();return}
+  showModal(`<div class="notification-heading"><h2>Notificações</h2><p>Acompanhe as novidades das suas trocas.</p></div><div id="notificationList" class="notification-list"><p class="proposal-loading">Carregando notificações…</p></div>`);
+  await loadNotifications();
+}
+async function loadNotifications(){
+  const host=$('#notificationList');
+  if(!host||!user)return;
+  try{
+    const rows=await api(`swap_notifications?select=id,proposal_id,notification_type,message,is_read,created_at&recipient_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc&limit=50`);
+    if(!rows.length){
+      host.innerHTML='<div class="empty proposal-empty"><span>♧</span><h3>Nenhuma notificação ainda</h3><p>Quando alguém interagir com suas propostas, avisaremos por aqui.</p></div>';
+      await loadNotificationCount();
+      return;
+    }
+    const labels={proposal_received:'Nova proposta',proposal_accepted:'Proposta aceita',proposal_declined:'Proposta recusada'};
+    host.innerHTML=rows.map(n=>`<article class="notification-card ${n.is_read?'is-read':'is-unread'}"><div class="notification-card-main"><div class="notification-card-top"><b>${esc(labels[n.notification_type]||'Atualização')}</b><small>${esc(new Date(n.created_at).toLocaleString('pt-BR'))}</small></div><p>${esc(n.message)}</p></div><div class="notification-actions">${!n.is_read?`<button class="notification-read" data-id="${n.id}">Marcar como lida</button>`:''}${n.proposal_id?`<button class="notification-open" data-id="${n.id}">Ver proposta</button>`:''}</div></article>`).join('');
+    host.querySelectorAll('.notification-read').forEach(b=>b.addEventListener('click',()=>markNotificationRead(b.dataset.id,false)));
+    host.querySelectorAll('.notification-open').forEach(b=>b.addEventListener('click',()=>markNotificationRead(b.dataset.id,true)));
+    await loadNotificationCount();
+  }catch(e){
+    host.innerHTML=`<div class="empty"><h3>Não foi possível carregar as notificações</h3><p>${esc(e.message)}</p><p>Confira se a tabela swap_notifications e as políticas RLS estão configuradas.</p></div>`;
+  }
+}
+async function markNotificationRead(id,openProposal){
+  try{
+    await api(`swap_notifications?id=eq.${encodeURIComponent(id)}&recipient_id=eq.${encodeURIComponent(user.id)}`,{
+      method:'PATCH',body:{is_read:true},headers:{Prefer:'return=minimal'}
+    });
+    await loadNotificationCount();
+    if(openProposal){
+      const item=await api(`swap_notifications?select=notification_type&recipient_id=eq.${encodeURIComponent(user.id)}&id=eq.${encodeURIComponent(id)}&limit=1`);
+      const type=item[0]?.notification_type;
+      await openProposals(type==='proposal_received'?'received':'sent');
+    }else{
+      await loadNotifications();
+    }
+  }catch(e){toast('Não foi possível atualizar a notificação: '+e.message)}
+}
+
+async function respondProposal(id,status){
+  const action=status==='accepted'?'aceitar':'recusar';
+  if(!confirm(`Tem certeza de que deseja ${action} esta proposta?`))return;
+  try{
+    await api(`swap_proposals?id=eq.${encodeURIComponent(id)}&owner_id=eq.${encodeURIComponent(user.id)}`,{method:'PATCH',body:{status,updated_at:new Date().toISOString()},headers:{Prefer:'return=minimal'}});
+    toast(status==='accepted'?'Proposta aceita!':'Proposta recusada.');
+    await loadProposals();
+  }catch(e){toast('Não foi possível atualizar a proposta: '+e.message)}
 }
 $('#accountBtn').onclick=()=>user?showModal(`<h2>Olá, ${esc(user.user_metadata?.name||user.email)}</h2><p>${esc(user.email)}</p><button class="primary" id="openMyProposals">Minhas propostas</button><button class="secondary" id="logoutBtn">Sair da conta</button>`):authForm();
 $('#closeModal').onclick=closeModal;
@@ -228,3 +260,5 @@ if(token&&user){
     .then(r=>{if(!r.ok)logout()}).catch(()=>{});
 }else updateAccount();
 loadListings();
+if(token&&user)loadNotificationCount();
+setInterval(loadNotificationCount,30000);
