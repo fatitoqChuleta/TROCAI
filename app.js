@@ -6,6 +6,9 @@ let user=JSON.parse(localStorage.getItem('trocai_user')||'null');
 let currentCategory='';
 let listings=[];
 let proposalTab='received';
+let activeConversation=null;
+let chatListCache=[];
+let chatFetchBusy=false;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3500)}
@@ -36,7 +39,16 @@ function updateAccount(){
   if(old)old.remove();
   const oldNotifications=$('#notificationsBtn');
   if(oldNotifications)oldNotifications.remove();
+  const oldChats=$('#chatsBtn');
+  if(oldChats)oldChats.remove();
   if(user){
+    const chatsBtn=document.createElement('button');
+    chatsBtn.className='textbtn chat-nav';
+    chatsBtn.id='chatsBtn';
+    chatsBtn.innerHTML='♧ Conversas <span id="chatUnreadCount" class="notification-count" hidden>0</span>';
+    chatsBtn.addEventListener('click',openChats);
+    $('#accountBtn').insertAdjacentElement('beforebegin',chatsBtn);
+
     const noticeBtn=document.createElement('button');
     noticeBtn.className='textbtn notification-nav';
     noticeBtn.id='notificationsBtn';
@@ -168,13 +180,120 @@ async function loadProposals(){
       const status=p.status||'pending';
       const statusLabel={pending:'Aguardando resposta',accepted:'Aceita',declined:'Recusada',completed:'Concluída',cancelled:'Cancelada'}[status]||status;
       const canRespond=proposalTab==='received'&&p.owner_id===user.id&&status==='pending';
-      return `<article class="proposal-card"><div class="proposal-card-top"><div><span class="tag">${esc(l?.category||'Proposta')}</span><h3>${esc(l?.title||`Anúncio #${p.listing_id}`)}</h3></div><span class="proposal-status status-${esc(status)}">${esc(statusLabel)}</span></div><p class="proposal-person">${proposalTab==='received'?'Enviada por':'Proposta para'} <b>${esc(person?.display_name||'Usuário do Trocaí')}</b></p><div class="offered-item"><small>${proposalTab==='received'?'O que a pessoa oferece':'O que você ofereceu'}</small><p>${esc(p.offered_item)}</p></div>${canRespond?`<div class="proposal-actions"><button class="accept-proposal" data-id="${p.id}">Aceitar</button><button class="decline-proposal" data-id="${p.id}">Recusar</button></div>`:''}</article>`;
+      return `<article class="proposal-card"><div class="proposal-card-top"><div><span class="tag">${esc(l?.category||'Proposta')}</span><h3>${esc(l?.title||`Anúncio #${p.listing_id}`)}</h3></div><span class="proposal-status status-${esc(status)}">${esc(statusLabel)}</span></div><p class="proposal-person">${proposalTab==='received'?'Enviada por':'Proposta para'} <b>${esc(person?.display_name||'Usuário do Trocaí')}</b></p><div class="offered-item"><small>${proposalTab==='received'?'O que a pessoa oferece':'O que você ofereceu'}</small><p>${esc(p.offered_item)}</p></div>${canRespond?`<div class="proposal-actions"><button class="accept-proposal" data-id="${p.id}">Aceitar</button><button class="decline-proposal" data-id="${p.id}">Recusar</button></div>`:''}${status==='accepted'?`<div class="proposal-actions"><button class="open-proposal-chat" data-id="${p.id}">Abrir conversa</button></div>`:''}</article>`;
     }).join('');
     host.querySelectorAll('.accept-proposal').forEach(b=>b.onclick=()=>respondProposal(b.dataset.id,'accepted'));
     host.querySelectorAll('.decline-proposal').forEach(b=>b.onclick=()=>respondProposal(b.dataset.id,'declined'));
+    host.querySelectorAll('.open-proposal-chat').forEach(b=>b.onclick=()=>openChatForProposal(b.dataset.id));
   }catch(e){
     host.innerHTML=`<div class="empty"><h3>Não foi possível carregar as propostas</h3><p>${esc(e.message)}</p><p>Confira se a tabela swap_proposals e as permissões de leitura estão configuradas.</p></div>`;
   }
+}
+
+async function loadChatUnreadCount(){
+  if(!user||!token)return;
+  try{
+    const rows=await api(`swap_messages?select=id&sender_id=neq.${encodeURIComponent(user.id)}&read_at=is.null&limit=500`);
+    const badge=$('#chatUnreadCount');
+    if(!badge)return;
+    badge.textContent=String(rows.length);
+    badge.hidden=rows.length===0;
+  }catch(e){console.warn('Não foi possível atualizar o contador de mensagens:',e.message)}
+}
+async function openChats(){
+  if(!user){authForm();return}
+  activeConversation=null;
+  showModal(`<div class="chat-shell"><div class="chat-heading"><div><h2>Conversas</h2><p>Negocie os detalhes das suas trocas por aqui.</p></div></div><div id="chatConversationList" class="chat-conversation-list"><p class="proposal-loading">Carregando conversas…</p></div></div>`);
+  await loadConversations();
+}
+async function loadConversations(){
+  const host=$('#chatConversationList');
+  if(!host||!user)return;
+  try{
+    const rows=await api(`swap_conversations?select=id,proposal_id,listing_id,owner_id,proposer_id,created_at,updated_at&or=(owner_id.eq.${user.id},proposer_id.eq.${user.id})&order=updated_at.desc&limit=100`);
+    chatListCache=rows;
+    if(!rows.length){host.innerHTML='<div class="empty proposal-empty"><span>♡</span><h3>Nenhuma conversa disponível</h3><p>Quando uma proposta for aceita, a conversa aparecerá aqui.</p></div>';await loadChatUnreadCount();return}
+    const listingIds=[...new Set(rows.map(x=>x.listing_id))];
+    const otherIds=[...new Set(rows.map(x=>x.owner_id===user.id?x.proposer_id:x.owner_id))];
+    const [listingRows,profileRows,messageRows]=await Promise.all([
+      api(`swap_listings?select=id,title,category&id=in.(${listingIds.join(',')})`,{auth:false}),
+      api(`profiles?select=id,display_name&id=in.(${otherIds.join(',')})`,{auth:false}),
+      api(`swap_messages?select=conversation_id,body,created_at,sender_id,read_at&conversation_id=in.(${rows.map(x=>x.id).join(',')})&order=created_at.desc&limit=500`)
+    ]);
+    const listingMap=new Map(listingRows.map(x=>[String(x.id),x]));
+    const profileMap=new Map(profileRows.map(x=>[x.id,x]));
+    const latestMap=new Map();
+    for(const m of messageRows){if(!latestMap.has(String(m.conversation_id)))latestMap.set(String(m.conversation_id),m)}
+    host.innerHTML=rows.map(c=>{
+      const l=listingMap.get(String(c.listing_id));
+      const otherId=c.owner_id===user.id?c.proposer_id:c.owner_id;
+      const person=profileMap.get(otherId);
+      const last=latestMap.get(String(c.id));
+      const preview=last?last.body:'Conversa iniciada. Envie a primeira mensagem!';
+      const when=last?new Date(last.created_at).toLocaleDateString('pt-BR'):'Proposta aceita';
+      return `<button class="chat-conversation-item" data-id="${c.id}"><span class="chat-avatar">${esc((person?.display_name||'T').trim().charAt(0).toUpperCase())}</span><span class="chat-conversation-copy"><b>${esc(person?.display_name||'Pessoa do Trocaí')}</b><strong>${esc(l?.title||`Anúncio #${c.listing_id}`)}</strong><small>${esc(preview)}</small></span><time>${esc(when)}</time></button>`;
+    }).join('');
+    host.querySelectorAll('.chat-conversation-item').forEach(b=>b.addEventListener('click',()=>openChat(b.dataset.id)));
+    await loadChatUnreadCount();
+  }catch(e){host.innerHTML=`<div class="empty"><h3>Não foi possível carregar as conversas</h3><p>${esc(e.message)}</p><p>Confira se as tabelas swap_conversations e swap_messages foram criadas e se as políticas RLS estão ativas.</p></div>`}
+}
+async function openChatForProposal(proposalId){
+  try{
+    const rows=await api(`swap_conversations?select=id,proposal_id,listing_id,owner_id,proposer_id,created_at,updated_at&proposal_id=eq.${encodeURIComponent(proposalId)}&limit=1`);
+    if(!rows.length)throw Error('A conversa ainda não foi criada. Atualize a página e tente novamente.');
+    await openChat(rows[0].id);
+  }catch(e){toast(e.message)}
+}
+async function openChat(conversationId){
+  try{
+    const rows=await api(`swap_conversations?select=id,proposal_id,listing_id,owner_id,proposer_id,created_at,updated_at&id=eq.${encodeURIComponent(conversationId)}&limit=1`);
+    if(!rows.length)throw Error('Conversa não encontrada ou sem permissão de acesso.');
+    activeConversation=rows[0];
+    const otherId=activeConversation.owner_id===user.id?activeConversation.proposer_id:activeConversation.owner_id;
+    const [profiles,listingsForChat]=await Promise.all([
+      api(`profiles?select=id,display_name&id=eq.${otherId}&limit=1`,{auth:false}),
+      api(`swap_listings?select=id,title&id=eq.${activeConversation.listing_id}&limit=1`,{auth:false})
+    ]);
+    const person=profiles[0]?.display_name||'Pessoa do Trocaí';
+    const title=listingsForChat[0]?.title||`Anúncio #${activeConversation.listing_id}`;
+    showModal(`<div class="chat-thread"><div class="chat-thread-header"><button type="button" class="chat-back" id="chatBack">← Conversas</button><div><h2>${esc(person)}</h2><p>${esc(title)}</p></div></div><div id="chatMessages" class="chat-messages"><p class="proposal-loading">Carregando mensagens…</p></div><form id="chatSendForm" class="chat-send-form"><textarea name="message" rows="2" maxlength="3000" placeholder="Escreva sua mensagem…" required></textarea><button class="primary" type="submit" aria-label="Enviar mensagem">Enviar ➤</button></form><p class="chat-safety-note">Dica de segurança: combine encontros em locais públicos e movimentados.</p></div>`);
+    $('#chatBack').onclick=openChats;
+    $('#chatSendForm').onsubmit=sendChatMessage;
+    await loadChatMessages(true);
+  }catch(e){toast('Não foi possível abrir a conversa: '+e.message)}
+}
+async function loadChatMessages(markRead=true){
+  if(chatFetchBusy||!activeConversation||!$('#chatMessages'))return;
+  chatFetchBusy=true;
+  try{
+    const rows=await api(`swap_messages?select=id,conversation_id,sender_id,body,created_at,read_at&conversation_id=eq.${activeConversation.id}&order=created_at.asc&limit=300`);
+    const host=$('#chatMessages');
+    if(!host)return;
+    const nearBottom=host.scrollHeight-host.scrollTop-host.clientHeight<100;
+    host.innerHTML=rows.length?rows.map(m=>`<div class="chat-message-row ${m.sender_id===user.id?'mine':'theirs'}"><div class="chat-bubble">${esc(m.body).replace(/\n/g,'<br>')}<time>${esc(new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}))}</time></div></div>`).join(''):'<div class="chat-empty"><span>♡</span><p>Esta conversa está começando. Envie uma mensagem para combinar os detalhes da troca.</p></div>';
+    if(nearBottom||markRead)host.scrollTop=host.scrollHeight;
+    if(markRead){
+      await api(`swap_messages?conversation_id=eq.${activeConversation.id}&sender_id=neq.${encodeURIComponent(user.id)}&read_at=is.null`,{method:'PATCH',body:{read_at:new Date().toISOString()},headers:{Prefer:'return=minimal'}});
+      await loadChatUnreadCount();
+    }
+  }catch(e){const host=$('#chatMessages');if(host)host.innerHTML=`<div class="empty"><p>Não foi possível carregar as mensagens: ${esc(e.message)}</p></div>`}
+  finally{chatFetchBusy=false}
+}
+async function sendChatMessage(e){
+  e.preventDefault();
+  if(!activeConversation||!user)return;
+  const form=e.currentTarget;
+  const field=form.elements.message;
+  const body=field.value.trim();
+  if(!body)return;
+  const button=form.querySelector('button[type="submit"]');
+  button.disabled=true;
+  try{
+    await api('swap_messages',{method:'POST',body:{conversation_id:activeConversation.id,sender_id:user.id,body},headers:{Prefer:'return=minimal'}});
+    field.value='';
+    await loadChatMessages(false);
+  }catch(err){toast('Não foi possível enviar a mensagem: '+err.message)}
+  finally{button.disabled=false;field.focus()}
 }
 
 async function loadNotificationCount(){
@@ -260,5 +379,7 @@ if(token&&user){
     .then(r=>{if(!r.ok)logout()}).catch(()=>{});
 }else updateAccount();
 loadListings();
+if(token&&user)loadNotificationCount();
+setInterval(()=>{loadNotificationCount();loadChatUnreadCount();if(activeConversation&&$('#chatMessages'))loadChatMessages(true)},5000);
 if(token&&user)loadNotificationCount();
 setInterval(loadNotificationCount,30000);
