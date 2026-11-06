@@ -166,14 +166,45 @@ async function loadProposals(){
     host.innerHTML=`<div class="empty"><h3>Não foi possível carregar as propostas</h3><p>${esc(e.message)}</p><p>Confira se a tabela swap_proposals e as permissões de leitura estão configuradas.</p></div>`;
   }
 }
-async function respondProposal(id,status){
-  const action=status==='accepted'?'aceitar':'recusar';
-  if(!confirm(`Tem certeza de que deseja ${action} esta proposta?`))return;
-  try{
-    await api(`swap_proposals?id=eq.${encodeURIComponent(id)}&owner_id=eq.${encodeURIComponent(user.id)}`,{method:'PATCH',body:{status,updated_at:new Date().toISOString()},headers:{Prefer:'return=minimal'}});
-    toast(status==='accepted'?'Proposta aceita!':'Proposta recusada.');
+
+async function respondProposal(id, status) {
+  const action = status === 'accepted' ? 'aceitar' : 'recusar';
+
+  if (!confirm(`Tem certeza de que deseja ${action} esta proposta?`)) return;
+
+  try {
+    const updated = await api(
+      `swap_proposals?id=eq.${encodeURIComponent(id)}&owner_id=eq.${encodeURIComponent(user.id)}&status=eq.pending`,
+      {
+        method: 'PATCH',
+        body: {
+          status,
+          updated_at: new Date().toISOString()
+        },
+        headers: {
+          Prefer: 'return=representation'
+        }
+      }
+    );
+
+    if (!Array.isArray(updated) || updated.length === 0) {
+      throw new Error(
+        'Nenhuma proposta foi atualizada. Verifique as permissões de UPDATE da tabela swap_proposals no Supabase.'
+      );
+    }
+
+    toast(
+      status === 'accepted'
+        ? 'Proposta aceita com sucesso!'
+        : 'Proposta recusada com sucesso!'
+    );
+
     await loadProposals();
-  }catch(e){toast('Não foi possível atualizar a proposta: '+e.message)}
+
+  } catch (e) {
+    console.error('Erro ao responder proposta:', e);
+    toast('Não foi possível atualizar a proposta: ' + e.message);
+  }
 }
 $('#accountBtn').onclick=()=>user?showModal(`<h2>Olá, ${esc(user.user_metadata?.name||user.email)}</h2><p>${esc(user.email)}</p><button class="primary" id="openMyProposals">Minhas propostas</button><button class="secondary" id="logoutBtn">Sair da conta</button>`):authForm();
 $('#closeModal').onclick=closeModal;
