@@ -373,7 +373,26 @@ $('#searchBtn').onclick=renderListings;
 $('#search').oninput=renderListings;
 $('#category').onchange=e=>{currentCategory=e.target.value;renderListings()};
 document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{currentCategory=c.dataset.cat;$('#category').value=currentCategory;document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',x===c));renderListings()});
-$('#menuBtn').onclick=()=>toast('Use os atalhos de navegação rolando a página.');
+$('#menuBtn').onclick=()=>{
+  const header=$('#topbar');
+  const button=$('#menuBtn');
+  const opened=header.classList.toggle('mobile-open');
+  button.setAttribute('aria-expanded',String(opened));
+  button.setAttribute('aria-label',opened?'Fechar menu':'Abrir menu');
+  button.textContent=opened?'×':'☰';
+};
+document.querySelectorAll('#mainNav a').forEach(link=>link.addEventListener('click',()=>{
+  $('#topbar').classList.remove('mobile-open');
+  $('#menuBtn').setAttribute('aria-expanded','false');
+  $('#menuBtn').setAttribute('aria-label','Abrir menu');
+  $('#menuBtn').textContent='☰';
+}));
+$('#headerActions').addEventListener('click',()=>{
+  $('#topbar').classList.remove('mobile-open');
+  $('#menuBtn').setAttribute('aria-expanded','false');
+  $('#menuBtn').setAttribute('aria-label','Abrir menu');
+  $('#menuBtn').textContent='☰';
+});
 document.addEventListener('click',e=>{
   if(e.target.id==='logoutBtn')logout();
   if(e.target.id==='openMyProposals')openProposals();
