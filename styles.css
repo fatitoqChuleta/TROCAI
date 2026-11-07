@@ -105,3 +105,12 @@
   .chat-send-form button{min-width:48px;font-size:13px}
   .dialog:has(.chat-thread){border-radius:18px}
 }
+
+/* Corrige a exibição do botão Conversas no celular */
+@media (max-width: 850px) {
+  .topbar.mobile-open #headerActions .chat-nav {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+}
