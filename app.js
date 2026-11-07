@@ -3,6 +3,7 @@ const base=(cfg.SUPABASE_URL||'').replace(/\/$/,'');
 const key=cfg.SUPABASE_ANON_KEY||'';
 let token=localStorage.getItem('trocai_access_token')||'';
 let user=JSON.parse(localStorage.getItem('trocai_user')||'null');
+let isAdmin=false;
 let currentCategory='';
 let listings=[];
 let proposalTab='received';
@@ -41,6 +42,8 @@ function updateAccount(){
   if(oldNotifications)oldNotifications.remove();
   const oldChats=$('#chatsBtn');
   if(oldChats)oldChats.remove();
+  const oldAdmin=$('#adminBtn');
+  if(oldAdmin)oldAdmin.remove();
   if(user){
     const chatsBtn=document.createElement('button');
     chatsBtn.className='textbtn chat-nav';
@@ -61,7 +64,29 @@ function updateAccount(){
     btn.addEventListener('click',openProposals);
     $('#accountBtn').insertAdjacentElement('beforebegin',btn);
     loadNotificationCount();
+    if(isAdmin){
+      const adminBtn=document.createElement('button');
+      adminBtn.className='textbtn admin-nav';adminBtn.id='adminBtn';
+      adminBtn.textContent='Painel administrativo';
+      adminBtn.addEventListener('click',openAdminPanel);
+      $('#accountBtn').insertAdjacentElement('beforebegin',adminBtn);
+    }
   }
+}
+async function refreshAdminRole(){
+  isAdmin=false;
+  if(!user||!token){updateAccount();return}
+  try{
+    const rows=await api(`user_roles?select=role&user_id=eq.${encodeURIComponent(user.id)}&limit=1`);
+    isAdmin=rows.some(row=>row.role==='admin');
+  }catch(error){
+    console.warn('Não foi possível verificar a função administrativa:',error.message);
+  }
+  updateAccount();
+}
+function openAdminPanel(){
+  if(!user||!isAdmin){toast('Acesso administrativo não autorizado.');return}
+  showModal(`<div class="admin-panel"><span class="eyebrow">ÁREA RESTRITA</span><h2>Painel administrativo</h2><p>Você entrou com uma conta que possui a função de administrador.</p><div class="admin-notice"><b>Primeira etapa concluída</b><p>O Trocaí reconheceu sua função administrativa. Antes de liberar ações de gestão, precisamos configurar e testar as políticas de segurança (RLS) no Supabase para cada tabela.</p></div><div class="admin-modules"><article><b>Usuários</b><span>Próxima etapa: consulta de perfis e fluxo seguro de moderação.</span></article><article><b>Anúncios</b><span>Próxima etapa: listar, pausar e remover anúncios com autorização no banco.</span></article><article><b>Propostas e conversas</b><span>Próxima etapa: consulta de denúncias e moderação, sem expor conversas indevidamente.</span></article></div><p class="admin-footnote">Por segurança, esta versão ainda não executa exclusões nem alterações administrativas.</p></div>`);
 }
 function authForm(mode='login'){
   const signup=mode==='signup';
@@ -98,9 +123,10 @@ function saveSession(d){
   token=d.access_token;user=d.user;
   localStorage.setItem('trocai_access_token',token);localStorage.setItem('trocai_user',JSON.stringify(user));
   updateAccount();
+  refreshAdminRole();
 }
 async function logout(){
-  token='';user=null;localStorage.removeItem('trocai_access_token');localStorage.removeItem('trocai_user');
+  token='';user=null;isAdmin=false;localStorage.removeItem('trocai_access_token');localStorage.removeItem('trocai_user');
   updateAccount();toast('Você saiu da sua conta.');
 }
 function renderListings(){
@@ -399,6 +425,7 @@ document.addEventListener('click',e=>{
 });
 if(token&&user){
   updateAccount();
+  refreshAdminRole();
   fetch(`${base}/auth/v1/user`,{headers:{apikey:key,Authorization:`Bearer ${token}`}})
     .then(r=>{if(!r.ok)logout()}).catch(()=>{});
 }else updateAccount();
