@@ -56,3 +56,52 @@
 .chat-safety-note{margin:0;color:var(--muted);font-size:10px;text-align:center}
 @media(max-width:850px){.chat-nav{display:none}}
 @media(max-width:540px){.chat-thread-header{align-items:flex-start;flex-direction:column}.chat-back{align-self:flex-start}.chat-messages{max-height:42vh}.chat-bubble{max-width:90%}.chat-conversation-item{padding:10px}.chat-conversation-item time{display:none}}
+
+
+/* Ajustes de usabilidade: menu móvel e chat responsivo */
+@media(max-width:850px){
+  .topbar{height:64px;min-height:64px;padding:0 18px;flex-wrap:wrap;align-content:center;column-gap:12px;row-gap:0}
+  .topbar.mobile-open{height:auto;min-height:64px;padding-top:12px;padding-bottom:14px;align-items:center}
+  .topbar.mobile-open nav{display:flex;order:3;width:100%;flex-wrap:wrap;gap:4px;padding-top:12px;margin-top:8px;border-top:1px solid var(--line)}
+  .topbar.mobile-open nav a{padding:10px 12px;font-size:13px}
+  .topbar.mobile-open .actions{display:flex;order:4;width:100%;flex-wrap:wrap;gap:8px;padding-top:10px}
+  .topbar.mobile-open .actions button{min-height:42px;padding:10px 12px}
+  .topbar.mobile-open .mobile{margin-left:auto}
+  #headerActions .textbtn{border:1px solid var(--line);border-radius:22px;background:#fff;padding:10px 13px}
+  #headerActions .primary{padding:11px 16px}
+  .modal{padding:10px;align-items:center}
+  .dialog{width:min(560px,100%);max-height:calc(100dvh - 20px);padding:24px 20px;overscroll-behavior:contain}
+  #modal:has(.chat-thread) .dialog{width:100%;height:calc(100dvh - 20px);max-height:calc(100dvh - 20px);padding:18px 14px;overflow:hidden}
+  .chat-thread{height:100%;min-height:0;gap:10px}
+  .chat-thread-header{flex-direction:row;align-items:center}
+  .chat-thread-header h2{font-size:18px}
+  .chat-messages{flex:1;min-height:120px;max-height:none;padding:12px 2px;overscroll-behavior:contain}
+  .chat-send-form{gap:8px;padding-top:10px;padding-bottom:env(safe-area-inset-bottom)}
+  .chat-send-form textarea{min-height:64px;max-height:150px;padding:12px;font-size:16px;line-height:1.4}
+  .chat-send-form button{min-height:48px;padding:0 14px}
+  .chat-safety-note{font-size:10px;line-height:1.4}
+}
+@media(min-width:851px){
+  #modal:has(.chat-thread) .dialog{width:min(780px,94vw);max-height:88vh;padding:30px}
+  .chat-thread{min-height:min(70vh,700px)}
+  .chat-messages{flex:1;min-height:300px;max-height:none;padding:16px 8px}
+  .chat-send-form textarea{min-height:76px;max-height:190px;padding:14px 16px;font-size:15px;line-height:1.5}
+  .chat-send-form button{min-height:52px;padding:0 22px}
+}
+@media(max-width:540px){
+  .topbar{padding-left:14px;padding-right:14px}
+  .brand{font-size:27px}
+  .hero{padding-top:42px;padding-bottom:38px}
+  .hero h1{font-size:clamp(42px,12vw,51px)}
+  .hero-actions{flex-wrap:wrap}
+  .hero-actions button{flex:1;min-height:46px;padding:12px 14px}
+  .searchbar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px}
+  .searchbar input{width:100%;min-width:0;min-height:44px}
+  .searchbar select,.searchbar>.primary{grid-column:1/-1;width:100%;min-height:44px}
+  .chat-thread-header{flex-wrap:wrap}
+  .chat-back{min-height:40px}
+  .chat-bubble{font-size:14px;max-width:92%;padding:11px 13px}
+  .chat-send-form textarea{min-height:68px}
+  .chat-send-form button{min-width:48px;font-size:13px}
+  .dialog:has(.chat-thread){border-radius:18px}
+}
