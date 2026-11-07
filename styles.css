@@ -146,3 +146,14 @@
     padding: 0 12px;
   }
 }
+
+/* Painel administrativo — estrutura inicial */
+.admin-nav{font-weight:800;color:#8b4d2b}
+.admin-panel h2{margin:6px 0 8px}
+.admin-panel>p{color:#6f665d;line-height:1.55}
+.admin-notice{margin:18px 0;padding:16px;border:1px solid #ead7bd;border-radius:16px;background:#fff8ed}
+.admin-notice p{margin:7px 0 0;color:#62584e;line-height:1.5}
+.admin-modules{display:grid;gap:10px;margin:16px 0}
+.admin-modules article{display:grid;gap:5px;padding:14px;border:1px solid #eee3d7;border-radius:13px;background:#fff}
+.admin-modules article span,.admin-footnote{font-size:.9rem;color:#746b62;line-height:1.5}
+.admin-footnote{margin-top:14px}
