@@ -86,7 +86,36 @@ async function refreshAdminRole(){
 }
 function openAdminPanel(){
   if(!user||!isAdmin){toast('Acesso administrativo não autorizado.');return}
-  showModal(`<div class="admin-panel"><span class="eyebrow">ÁREA RESTRITA</span><h2>Painel administrativo</h2><p>Você entrou com uma conta que possui a função de administrador.</p><div class="admin-notice"><b>Primeira etapa concluída</b><p>O Trocaí reconheceu sua função administrativa. Antes de liberar ações de gestão, precisamos configurar e testar as políticas de segurança (RLS) no Supabase para cada tabela.</p></div><div class="admin-modules"><article><b>Usuários</b><span>Próxima etapa: consulta de perfis e fluxo seguro de moderação.</span></article><article><b>Anúncios</b><span>Próxima etapa: listar, pausar e remover anúncios com autorização no banco.</span></article><article><b>Propostas e conversas</b><span>Próxima etapa: consulta de denúncias e moderação, sem expor conversas indevidamente.</span></article></div><p class="admin-footnote">Por segurança, esta versão ainda não executa exclusões nem alterações administrativas.</p></div>`);
+  showModal(`<div class="admin-panel"><span class="eyebrow">ÁREA RESTRITA</span><h2>Painel administrativo</h2><p>Gerencie informações da comunidade Trocaí.</p><section class="admin-users"><div class="admin-users-head"><div><h3>Usuários cadastrados</h3><p>Consulta protegida de perfis e contas.</p></div><button class="secondary admin-refresh" id="refreshAdminUsers" type="button">Atualizar</button></div><div class="admin-user-stats"><div><small>Total de usuários</small><strong id="adminUserTotal">—</strong></div><div><small>Administradores</small><strong id="adminAdminTotal">—</strong></div></div><label class="admin-search-label" for="adminUserSearch">Buscar usuário</label><input id="adminUserSearch" class="admin-user-search" type="search" placeholder="Nome, e-mail ou cidade"><div id="adminUsersContent" class="admin-users-content"><p class="admin-loading">Carregando usuários...</p></div><p class="admin-footnote">Esta tela é somente para consulta. Nenhuma conta pode ser alterada ou excluída por aqui.</p></section></div>`);
+  $('#refreshAdminUsers').onclick=loadAdminUsers;
+  $('#adminUserSearch').oninput=()=>renderAdminUsers(window.trocaiAdminUsers||[]);
+  loadAdminUsers();
+}
+async function loadAdminUsers(){
+  const host=$('#adminUsersContent');
+  if(!host)return;
+  host.innerHTML='<p class="admin-loading">Carregando usuários...</p>';
+  const refresh=$('#refreshAdminUsers');
+  if(refresh)refresh.disabled=true;
+  try{
+    const response=await fetch('/api/admin/users',{headers:{Authorization:`Bearer ${token}`,'Accept':'application/json'},cache:'no-store'});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw Error(data.error||`Erro ${response.status} ao consultar usuários.`);
+    window.trocaiAdminUsers=Array.isArray(data.users)?data.users:[];
+    $('#adminUserTotal').textContent=String(data.total??window.trocaiAdminUsers.length);
+    $('#adminAdminTotal').textContent=String(data.admins??window.trocaiAdminUsers.filter(x=>x.role==='admin').length);
+    renderAdminUsers(window.trocaiAdminUsers);
+  }catch(error){
+    host.innerHTML=`<div class="admin-load-error"><b>Não foi possível carregar os usuários.</b><p>${esc(error.message)}</p><small>Confira as variáveis de ambiente da função administrativa no Cloudflare e tente novamente.</small></div>`;
+  }finally{if(refresh)refresh.disabled=false;}
+}
+function renderAdminUsers(rows){
+  const host=$('#adminUsersContent');
+  if(!host)return;
+  const term=($('#adminUserSearch')?.value||'').trim().toLocaleLowerCase('pt-BR');
+  const filtered=rows.filter(item=>`${item.name} ${item.email} ${item.city}`.toLocaleLowerCase('pt-BR').includes(term));
+  if(!filtered.length){host.innerHTML='<div class="admin-users-empty">Nenhum usuário encontrado.</div>';return;}
+  host.innerHTML=filtered.map(item=>`<article class="admin-user-card"><div class="admin-user-main"><b>${esc(item.name)}</b><span>${esc(item.email||'E-mail indisponível')}</span></div><div class="admin-user-meta"><span>${esc(item.city||'Cidade não informada')}</span><span>Cadastro: ${item.created_at?esc(new Date(item.created_at).toLocaleDateString('pt-BR')):'—'}</span><span class="admin-role ${item.role==='admin'?'is-admin':''}">${item.role==='admin'?'Administrador':'Usuário'}</span></div></article>`).join('');
 }
 function authForm(mode='login'){
   const signup=mode==='signup';
