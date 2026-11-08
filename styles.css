@@ -209,10 +209,11 @@
 .admin-ad-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .admin-ad-actions button{padding:9px 12px;border-radius:20px;font-size:11px;font-weight:800}
 .admin-ad-delete{background:#fff0f1;color:#a12b45;border:1px solid #f1cbd2}
-.trocai-side-ad{position:fixed;z-index:5;top:50%;transform:translateY(-50%);width:clamp(105px,9vw,145px);max-height:42vh;display:flex;align-items:center;justify-content:center;pointer-events:auto}
-.trocai-side-ad.side-ad-left{left:12px}
-.trocai-side-ad.side-ad-right{right:12px}
-.trocai-side-ad a{display:block;width:100%;max-height:42vh;border:1px solid #f0dfe4;border-radius:13px;overflow:hidden;background:#fff;box-shadow:0 8px 28px #3b15200d}
-.trocai-side-ad img{display:block;width:100%;max-height:42vh;object-fit:contain}
+.trocai-side-ad{position:fixed;z-index:5;top:50%;transform:translateY(-50%);width:clamp(150px,12vw,190px);max-height:60vh;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:7px;pointer-events:auto}
+.trocai-side-ad.side-ad-left{left:16px}
+.trocai-side-ad.side-ad-right{right:16px}
+.trocai-side-ad a{display:block;width:100%;max-height:54vh;border:1px solid #f0dfe4;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 10px 30px #3b15201a}
+.trocai-side-ad img{display:block;width:100%;max-height:54vh;object-fit:contain}
+.trocai-side-ad-caption{margin:0;padding:7px 9px;border:1px solid #f0dfe4;border-radius:10px;background:#fffaf2ed;color:#684957;font-size:11px;font-weight:700;line-height:1.4;text-align:center;overflow-wrap:anywhere;box-shadow:0 5px 18px #3b15200d}
 @media(max-width:1450px){.trocai-side-ad{display:none}}
 @media(max-width:540px){.admin-ad-card{grid-template-columns:82px minmax(0,1fr);gap:9px;padding:9px}.admin-ad-card>img{width:82px;height:110px}.admin-ad-actions{flex-direction:column}.admin-ad-actions button{width:100%}}
