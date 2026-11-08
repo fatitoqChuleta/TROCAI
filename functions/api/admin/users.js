@@ -27,10 +27,15 @@ export async function onRequestGet({ request, env }) {
   const authUser = await userResponse.json();
   if (!authUser?.id) return json({ error: 'Não foi possível validar a conta.' }, 401);
 
-  // A chave sb_secret_ é uma API key opaca, não um JWT.
-  // Envie-a somente no cabeçalho apikey; o Bearer continua reservado
-  // ao access token do usuário, já validado acima.
-  const adminHeaders = { apikey: serviceKey, 'Content-Type': 'application/json' };
+  // Compatibilidade com os dois formatos de chave administrativa:
+  // - sb_secret_: chave opaca nova, enviada somente em apikey.
+  // - service_role legado: JWT, enviado em apikey e Authorization.
+  // O token Bearer do usuário já foi validado separadamente acima.
+  const adminHeaders = {
+    apikey: serviceKey,
+    ...(serviceKey.startsWith('sb_secret_') ? {} : { Authorization: `Bearer ${serviceKey}` }),
+    'Content-Type': 'application/json'
+  };
   const roleResponse = await fetch(`${supabaseUrl}/rest/v1/user_roles?select=role&user_id=eq.${encodeURIComponent(authUser.id)}&limit=1`, { headers: adminHeaders });
   if (!roleResponse.ok) return json({ error: 'Não foi possível validar a permissão administrativa.' }, 502);
   const roles = await roleResponse.json();
