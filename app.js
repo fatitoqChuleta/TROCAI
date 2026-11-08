@@ -86,10 +86,16 @@ async function refreshAdminRole(){
 }
 function openAdminPanel(){
   if(!user||!isAdmin){toast('Acesso administrativo não autorizado.');return}
-  showModal(`<div class="admin-panel"><span class="eyebrow">ÁREA RESTRITA</span><h2>Painel administrativo</h2><p>Gerencie informações da comunidade Trocaí.</p><section class="admin-users"><div class="admin-users-head"><div><h3>Usuários cadastrados</h3><p>Consulta protegida de perfis e contas.</p></div><button class="secondary admin-refresh" id="refreshAdminUsers" type="button">Atualizar</button></div><div class="admin-user-stats"><div><small>Total de usuários</small><strong id="adminUserTotal">—</strong></div><div><small>Administradores</small><strong id="adminAdminTotal">—</strong></div></div><label class="admin-search-label" for="adminUserSearch">Buscar usuário</label><input id="adminUserSearch" class="admin-user-search" type="search" placeholder="Nome, e-mail ou cidade"><div id="adminUsersContent" class="admin-users-content"><p class="admin-loading">Carregando usuários...</p></div><p class="admin-footnote">Esta tela é somente para consulta. Nenhuma conta pode ser alterada ou excluída por aqui.</p></section></div>`);
+  showModal(`<div class="admin-panel"><span class="eyebrow">ÁREA RESTRITA</span><h2>Painel administrativo</h2><p>Gerencie informações da comunidade Trocaí.</p>
+  <section class="admin-users"><div class="admin-users-head"><div><h3>Usuários cadastrados</h3><p>Consulta protegida de perfis e contas.</p></div><button class="secondary admin-refresh" id="refreshAdminUsers" type="button">Atualizar</button></div><div class="admin-user-stats"><div><small>Total de usuários</small><strong id="adminUserTotal">—</strong></div><div><small>Administradores</small><strong id="adminAdminTotal">—</strong></div></div><label class="admin-search-label" for="adminUserSearch">Buscar usuário</label><input id="adminUserSearch" class="admin-user-search" type="search" placeholder="Nome, e-mail ou cidade"><div id="adminUsersContent" class="admin-users-content"><p class="admin-loading">Carregando usuários...</p></div><p class="admin-footnote">Esta tela é somente para consulta. Nenhuma conta pode ser alterada ou excluída por aqui.</p></section>
+  <section class="admin-ads"><div class="admin-section-heading"><div><h3>Gerenciamento de publicidade</h3><p>Cadastre banners que aparecem nas laterais do site em computadores.</p></div><button class="secondary" id="refreshAdminAds" type="button">Atualizar</button></div>
+  <form id="adminAdForm" class="admin-ad-form"><label class="field">Imagem da publicidade<input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required></label><label class="field">Link aberto ao clicar<input name="target_url" type="url" required placeholder="https://exemplo.com"></label><label class="field">Texto alternativo (opcional)<input name="alt_text" maxlength="120" placeholder="Descrição da imagem"></label><button class="primary" type="submit">＋ Adicionar publicidade</button><small>Imagens JPG, PNG, WEBP ou GIF de até 5 MB.</small></form>
+  <div class="admin-ad-list-heading"><h4>Publicidades cadastradas</h4><span id="adminAdCount">—</span></div><div id="adminAdsContent"><p class="admin-loading">Carregando publicidades...</p></div><p class="admin-footnote">A cada nova visita ou atualização, o site escolhe banners ativos aleatoriamente. As laterais são ocultadas em telas pequenas para não atrapalhar a navegação.</p></section></div>`);
   $('#refreshAdminUsers').onclick=loadAdminUsers;
   $('#adminUserSearch').oninput=()=>renderAdminUsers(window.trocaiAdminUsers||[]);
-  loadAdminUsers();
+  $('#refreshAdminAds').onclick=loadAdminAds;
+  $('#adminAdForm').onsubmit=submitAdminAd;
+  loadAdminUsers();loadAdminAds();
 }
 async function loadAdminUsers(){
   const host=$('#adminUsersContent');
@@ -117,6 +123,62 @@ function renderAdminUsers(rows){
   if(!filtered.length){host.innerHTML='<div class="admin-users-empty">Nenhum usuário encontrado.</div>';return;}
   host.innerHTML=filtered.map(item=>`<article class="admin-user-card"><div class="admin-user-main"><b>${esc(item.name)}</b><span>${esc(item.email||'E-mail indisponível')}</span></div><div class="admin-user-meta"><span>${esc(item.city||'Cidade não informada')}</span><span>Cadastro: ${item.created_at?esc(new Date(item.created_at).toLocaleDateString('pt-BR')):'—'}</span><span class="admin-role ${item.role==='admin'?'is-admin':''}">${item.role==='admin'?'Administrador':'Usuário'}</span></div></article>`).join('');
 }
+async function adminAdsRequest(method='GET',body){
+  const headers={Authorization:`Bearer ${token}`};
+  let payload=body;
+  if(body instanceof FormData){}else if(body!==undefined){headers['Content-Type']='application/json';payload=JSON.stringify(body)}
+  const response=await fetch('/api/admin/ads',{method,headers,body:payload,cache:'no-store'});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(data.error||`Erro ${response.status} ao gerenciar publicidades.`);
+  return data;
+}
+async function loadAdminAds(){
+  const host=$('#adminAdsContent');if(!host)return;
+  host.innerHTML='<p class="admin-loading">Carregando publicidades...</p>';
+  const refresh=$('#refreshAdminAds');if(refresh)refresh.disabled=true;
+  try{const data=await adminAdsRequest('GET');window.trocaiAdminAds=Array.isArray(data.ads)?data.ads:[];renderAdminAds(window.trocaiAdminAds);$('#adminAdCount').textContent=String(window.trocaiAdminAds.length)}
+  catch(error){host.innerHTML=`<div class="admin-load-error"><b>Não foi possível carregar as publicidades.</b><p>${esc(error.message)}</p><small>Confira a configuração da tabela e do bucket de publicidade no Supabase.</small></div>`}
+  finally{if(refresh)refresh.disabled=false}
+}
+function renderAdminAds(ads){
+  const host=$('#adminAdsContent');if(!host)return;
+  if(!ads.length){host.innerHTML='<div class="admin-users-empty">Nenhuma publicidade cadastrada ainda.</div>';return}
+  host.innerHTML=ads.map(ad=>`<article class="admin-ad-card" data-ad-id="${esc(ad.id)}"><img src="${esc(ad.image_url)}" alt="${esc(ad.alt_text||'Publicidade')}" loading="lazy"><div class="admin-ad-fields"><label class="field">Link de destino<input class="admin-ad-url" type="url" value="${esc(ad.target_url)}" required></label><label class="admin-ad-alt-label">Texto alternativo<input class="admin-ad-alt" maxlength="120" value="${esc(ad.alt_text||'')}"></label><label class="admin-ad-active"><input type="checkbox" class="admin-ad-enabled" ${ad.active?'checked':''}> Publicidade ativa</label><label class="admin-ad-replace">Substituir imagem<input class="admin-ad-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label><div class="admin-ad-actions"><button type="button" class="secondary admin-ad-save">Salvar alterações</button><button type="button" class="admin-ad-delete">Remover</button></div></div></article>`).join('');
+  host.querySelectorAll('.admin-ad-card').forEach(card=>{
+    const id=card.dataset.adId;
+    card.querySelector('.admin-ad-save').onclick=()=>saveAdminAd(card,id);
+    card.querySelector('.admin-ad-delete').onclick=()=>deleteAdminAd(id);
+  });
+}
+async function submitAdminAd(event){
+  event.preventDefault();const form=event.currentTarget;const button=form.querySelector('button[type="submit"]');button.disabled=true;
+  try{const file=form.elements.image.files[0];if(!file)throw Error('Selecione uma imagem.');const data=new FormData();data.append('image',file);data.append('target_url',form.elements.target_url.value.trim());data.append('alt_text',form.elements.alt_text.value.trim());await adminAdsRequest('POST',data);form.reset();toast('Publicidade adicionada!');await loadAdminAds();await loadPublicAds()}
+  catch(error){toast('Não foi possível adicionar: '+error.message)}finally{button.disabled=false}
+}
+async function saveAdminAd(card,id){
+  const button=card.querySelector('.admin-ad-save');button.disabled=true;
+  try{const data=new FormData();data.append('target_url',card.querySelector('.admin-ad-url').value.trim());data.append('alt_text',card.querySelector('.admin-ad-alt').value.trim());data.append('active',String(card.querySelector('.admin-ad-enabled').checked));const file=card.querySelector('.admin-ad-file').files[0];if(file)data.append('image',file);data.append('_id',id);await adminAdsRequest('PATCH',data);toast('Publicidade atualizada!');await loadAdminAds();await loadPublicAds()}
+  catch(error){toast('Não foi possível salvar: '+error.message)}finally{button.disabled=false}
+}
+async function deleteAdminAd(id){
+  if(!confirm('Remover esta publicidade?'))return;
+  try{await adminAdsRequest('DELETE',{id});toast('Publicidade removida.');await loadAdminAds();await loadPublicAds()}
+  catch(error){toast('Não foi possível remover: '+error.message)}
+}
+async function loadPublicAds(){
+  try{const response=await fetch('/api/ads',{cache:'no-store'});if(!response.ok)return;const data=await response.json();const ads=Array.isArray(data.ads)?data.ads.filter(ad=>ad.active&&ad.image_url&&ad.target_url):[];renderSideAds(ads)}catch(error){console.warn('Publicidade indisponível:',error.message)}
+}
+function renderSideAds(ads){
+  document.querySelectorAll('.trocai-side-ad').forEach(node=>node.remove());if(!ads.length)return;
+  const pool=[...ads];for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+  const selected=pool.slice(0,Math.min(2,pool.length));
+  // Evita repetir exatamente a mesma combinação/posição no próximo carregamento.
+  if(selected.length>1){
+    try{const previous=JSON.parse(localStorage.getItem('trocai_last_ad_rotation')||'[]');const current=selected.map(ad=>ad.id);if(JSON.stringify(current)===JSON.stringify(previous))selected.push(selected.shift());localStorage.setItem('trocai_last_ad_rotation',JSON.stringify(selected.map(ad=>ad.id)))}catch{}
+  }
+  selected.forEach((ad,index)=>{const rail=document.createElement('aside');rail.className=`trocai-side-ad ${index===0?'side-ad-left':'side-ad-right'}`;const link=document.createElement('a');link.href=ad.target_url;link.target='_blank';link.rel='noopener noreferrer sponsored';link.setAttribute('aria-label',ad.alt_text||'Publicidade — abre em nova aba');const img=document.createElement('img');img.src=ad.image_url;img.alt=ad.alt_text||'Publicidade';img.loading='lazy';link.appendChild(img);rail.appendChild(link);document.body.appendChild(rail)});
+}
+
 function authForm(mode='login'){
   const signup=mode==='signup';
   showModal(`<h2>${signup?'Crie sua conta':'Que bom ter você de volta!'}</h2><p>${signup?'Faça parte de uma comunidade de trocas.':'Entre para anunciar, conversar e combinar trocas.'}</p><form id="authForm">${signup?'<label class="field">Seu nome<input name="name" required maxlength="80" autocomplete="name"></label>':''}<label class="field">E-mail<input name="email" type="email" required autocomplete="email"></label><label class="field">Senha<input name="password" type="password" required minlength="6" autocomplete="current-password"></label><button class="primary" type="submit">${signup?'Criar minha conta':'Entrar'}</button></form><button class="switch" id="switchAuth">${signup?'Já tenho conta · Entrar':'Ainda não tenho conta · Criar conta'}</button><button class="switch" id="forgot">Esqueci minha senha</button>`);
@@ -463,3 +525,6 @@ if(token&&user)loadNotificationCount();
 setInterval(()=>{loadNotificationCount();loadChatUnreadCount();if(activeConversation&&$('#chatMessages'))loadChatMessages()},5000);
 if(token&&user)loadNotificationCount();
 setInterval(loadNotificationCount,30000);
+
+// Banners publicitários: sorteio novo a cada carregamento da página.
+loadPublicAds();
