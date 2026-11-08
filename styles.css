@@ -185,3 +185,34 @@
 .admin-load-error p{overflow-wrap:anywhere}
 .admin-load-error small{color:#806975;line-height:1.5}
 @media(max-width:540px){.admin-users-head{align-items:flex-start}.admin-user-meta{display:grid;gap:6px}}
+
+
+/* Gerenciamento de publicidade do painel administrativo */
+.admin-ads{margin-top:28px;padding-top:24px;border-top:1px solid var(--line)}
+.admin-section-heading,.admin-ad-list-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.admin-section-heading h3,.admin-ad-list-heading h4{margin:0;color:var(--wine);font-size:16px}
+.admin-section-heading p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
+.admin-ad-form{margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:15px;background:#fff}
+.admin-ad-form .field{margin:10px 0}
+.admin-ad-form input[type=file],.admin-ad-replace input{display:block;width:100%;margin-top:6px;font-size:11px}
+.admin-ad-form>small{display:block;margin-top:8px;color:var(--muted);font-size:10px}
+.admin-ad-list-heading{margin:18px 0 10px}
+.admin-ad-list-heading span{font-size:11px;color:var(--muted)}
+.admin-ad-card{display:grid;grid-template-columns:112px minmax(0,1fr);gap:13px;padding:13px;margin:10px 0;border:1px solid var(--line);border-radius:15px;background:#fff}
+.admin-ad-card>img{width:112px;height:145px;object-fit:contain;background:#fff7f8;border-radius:10px;border:1px solid var(--line)}
+.admin-ad-fields{min-width:0}
+.admin-ad-fields .field{margin:0 0 9px}
+.admin-ad-fields input[type=url],.admin-ad-alt-label input{display:block;width:100%;min-width:0;margin-top:5px;padding:9px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:12px}
+.admin-ad-alt-label{display:block;margin-bottom:9px;color:#6d3546;font-size:11px;font-weight:800}
+.admin-ad-active{display:flex;align-items:center;gap:7px;margin:8px 0;color:#684957;font-size:11px}
+.admin-ad-replace{display:block;color:#684957;font-size:11px;font-weight:800}
+.admin-ad-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.admin-ad-actions button{padding:9px 12px;border-radius:20px;font-size:11px;font-weight:800}
+.admin-ad-delete{background:#fff0f1;color:#a12b45;border:1px solid #f1cbd2}
+.trocai-side-ad{position:fixed;z-index:5;top:50%;transform:translateY(-50%);width:clamp(105px,9vw,145px);max-height:42vh;display:flex;align-items:center;justify-content:center;pointer-events:auto}
+.trocai-side-ad.side-ad-left{left:12px}
+.trocai-side-ad.side-ad-right{right:12px}
+.trocai-side-ad a{display:block;width:100%;max-height:42vh;border:1px solid #f0dfe4;border-radius:13px;overflow:hidden;background:#fff;box-shadow:0 8px 28px #3b15200d}
+.trocai-side-ad img{display:block;width:100%;max-height:42vh;object-fit:contain}
+@media(max-width:1450px){.trocai-side-ad{display:none}}
+@media(max-width:540px){.admin-ad-card{grid-template-columns:82px minmax(0,1fr);gap:9px;padding:9px}.admin-ad-card>img{width:82px;height:110px}.admin-ad-actions{flex-direction:column}.admin-ad-actions button{width:100%}}
