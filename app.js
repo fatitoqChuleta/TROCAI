@@ -176,7 +176,28 @@ function renderSideAds(ads){
   if(selected.length>1){
     try{const previous=JSON.parse(localStorage.getItem('trocai_last_ad_rotation')||'[]');const current=selected.map(ad=>ad.id);if(JSON.stringify(current)===JSON.stringify(previous))selected.push(selected.shift());localStorage.setItem('trocai_last_ad_rotation',JSON.stringify(selected.map(ad=>ad.id)))}catch{}
   }
-  selected.forEach((ad,index)=>{const rail=document.createElement('aside');rail.className=`trocai-side-ad ${index===0?'side-ad-left':'side-ad-right'}`;const link=document.createElement('a');link.href=ad.target_url;link.target='_blank';link.rel='noopener noreferrer sponsored';link.setAttribute('aria-label',ad.alt_text||'Publicidade — abre em nova aba');const img=document.createElement('img');img.src=ad.image_url;img.alt=ad.alt_text||'Publicidade';img.loading='lazy';link.appendChild(img);rail.appendChild(link);document.body.appendChild(rail)});
+  selected.forEach((ad,index)=>{
+    const rail=document.createElement('aside');
+    rail.className=`trocai-side-ad ${index===0?'side-ad-left':'side-ad-right'}`;
+    const link=document.createElement('a');
+    link.href=ad.target_url;
+    link.target='_blank';
+    link.rel='noopener noreferrer sponsored';
+    link.setAttribute('aria-label',ad.alt_text||'Publicidade — abre em nova aba');
+    const img=document.createElement('img');
+    img.src=ad.image_url;
+    img.alt=ad.alt_text||'Publicidade';
+    img.loading='lazy';
+    link.appendChild(img);
+    rail.appendChild(link);
+    if(ad.alt_text){
+      const caption=document.createElement('p');
+      caption.className='trocai-side-ad-caption';
+      caption.textContent=ad.alt_text;
+      rail.appendChild(caption);
+    }
+    document.body.appendChild(rail);
+  });
 }
 
 function authForm(mode='login'){
