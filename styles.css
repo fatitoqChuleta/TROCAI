@@ -217,3 +217,20 @@
 .trocai-side-ad-caption{margin:0;padding:7px 9px;border:1px solid #f0dfe4;border-radius:10px;background:#fffaf2ed;color:#684957;font-size:11px;font-weight:700;line-height:1.4;text-align:center;overflow-wrap:anywhere;box-shadow:0 5px 18px #3b15200d}
 @media(max-width:1450px){.trocai-side-ad{display:none}}
 @media(max-width:540px){.admin-ad-card{grid-template-columns:82px minmax(0,1fr);gap:9px;padding:9px}.admin-ad-card>img{width:82px;height:110px}.admin-ad-actions{flex-direction:column}.admin-ad-actions button{width:100%}}
+
+
+/* Painel administrativo: largura e rolagem para manter publicidade acessível */
+.dialog.admin-dialog{width:min(860px, calc(100vw - 28px));max-height:calc(100dvh - 28px);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:32px clamp(18px, 3vw, 34px);scroll-behavior:smooth}
+.admin-dialog .admin-panel{width:100%;min-width:0}
+.admin-dialog .admin-panel>h2{padding-right:32px}
+.admin-dialog .admin-panel-shortcuts{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:18px 0 4px;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.admin-dialog .admin-panel-shortcuts span{color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.04em}
+.admin-dialog .admin-panel-shortcuts button{padding:9px 13px;font-size:11px}
+.admin-dialog #adminAdsSection{scroll-margin-top:16px}
+.admin-dialog .admin-ads{padding-bottom:8px}
+.admin-dialog .admin-ad-form{padding:18px}
+.admin-dialog .admin-ad-form .primary{max-width:260px}
+.admin-dialog #adminAdsContent{display:grid;gap:10px}
+.admin-dialog .admin-ad-card{grid-template-columns:150px minmax(0,1fr);align-items:start}
+.admin-dialog .admin-ad-card>img{width:150px;height:180px}
+@media(max-width:600px){.dialog.admin-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:28px 14px 20px;border-radius:17px}.admin-dialog .admin-panel-shortcuts{align-items:flex-start}.admin-dialog .admin-panel-shortcuts button{width:100%}.admin-dialog .admin-ad-card{grid-template-columns:88px minmax(0,1fr)}.admin-dialog .admin-ad-card>img{width:88px;height:116px}.admin-dialog .admin-ad-actions{flex-direction:column}.admin-dialog .admin-ad-actions button{width:100%}}

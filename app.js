@@ -88,13 +88,21 @@ function openAdminPanel(){
   if(!user||!isAdmin){toast('Acesso administrativo não autorizado.');return}
   showModal(`<div class="admin-panel"><span class="eyebrow">ÁREA RESTRITA</span><h2>Painel administrativo</h2><p>Gerencie informações da comunidade Trocaí.</p>
   <section class="admin-users"><div class="admin-users-head"><div><h3>Usuários cadastrados</h3><p>Consulta protegida de perfis e contas.</p></div><button class="secondary admin-refresh" id="refreshAdminUsers" type="button">Atualizar</button></div><div class="admin-user-stats"><div><small>Total de usuários</small><strong id="adminUserTotal">—</strong></div><div><small>Administradores</small><strong id="adminAdminTotal">—</strong></div></div><label class="admin-search-label" for="adminUserSearch">Buscar usuário</label><input id="adminUserSearch" class="admin-user-search" type="search" placeholder="Nome, e-mail ou cidade"><div id="adminUsersContent" class="admin-users-content"><p class="admin-loading">Carregando usuários...</p></div><p class="admin-footnote">Esta tela é somente para consulta. Nenhuma conta pode ser alterada ou excluída por aqui.</p></section>
-  <section class="admin-ads"><div class="admin-section-heading"><div><h3>Gerenciamento de publicidade</h3><p>Cadastre banners que aparecem nas laterais do site em computadores.</p></div><button class="secondary" id="refreshAdminAds" type="button">Atualizar</button></div>
+  <div class="admin-panel-shortcuts"><span>Atalhos do painel</span><button class="secondary" id="goToAdminAds" type="button">Ir para gerenciamento de publicidade ↓</button></div>
+  <section class="admin-ads" id="adminAdsSection"><div class="admin-section-heading"><div><h3>Gerenciamento de publicidade</h3><p>Cadastre banners que aparecem nas laterais do site em computadores.</p></div><button class="secondary" id="refreshAdminAds" type="button">Atualizar</button></div>
   <form id="adminAdForm" class="admin-ad-form"><label class="field">Imagem da publicidade<input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required></label><label class="field">Link aberto ao clicar<input name="target_url" type="url" required placeholder="https://exemplo.com"></label><label class="field">Texto alternativo (opcional)<input name="alt_text" maxlength="120" placeholder="Descrição da imagem"></label><button class="primary" type="submit">＋ Adicionar publicidade</button><small>Imagens JPG, PNG, WEBP ou GIF de até 5 MB.</small></form>
   <div class="admin-ad-list-heading"><h4>Publicidades cadastradas</h4><span id="adminAdCount">—</span></div><div id="adminAdsContent"><p class="admin-loading">Carregando publicidades...</p></div><p class="admin-footnote">A cada nova visita ou atualização, o site escolhe banners ativos aleatoriamente. As laterais são ocultadas em telas pequenas para não atrapalhar a navegação.</p></section></div>`);
   $('#refreshAdminUsers').onclick=loadAdminUsers;
   $('#adminUserSearch').oninput=()=>renderAdminUsers(window.trocaiAdminUsers||[]);
   $('#refreshAdminAds').onclick=loadAdminAds;
   $('#adminAdForm').onsubmit=submitAdminAd;
+  // Painel ampliado com rolagem própria para manter a publicidade acessível.
+  const adminDialog=$('#modal .dialog');
+  if(adminDialog)adminDialog.classList.add('admin-dialog');
+  const adsJump=$('#goToAdminAds');
+  if(adsJump)adsJump.addEventListener('click',()=>{
+    $('#adminAdsSection')?.scrollIntoView({behavior:'smooth',block:'start'});
+  });
   loadAdminUsers();loadAdminAds();
 }
 async function loadAdminUsers(){
