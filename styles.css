@@ -241,3 +241,8 @@
 .admin-tab{flex:1;padding:11px 14px;border:0;border-radius:11px;background:transparent;color:var(--muted);font:800 13px 'DM Sans',sans-serif;cursor:pointer}
 .admin-tab.active{background:var(--wine);color:#fff}
 .admin-pane[hidden]{display:none!important}
+
+/* Editar / excluir propostas e anúncios */
+.edit-proposal,.edit-listing{background:#fff;border:1px solid #e7cbd3;color:var(--wine)}
+.delete-proposal,.delete-listing{background:#fff0f1;border:1px solid #f1cbd2;color:#a12b45}
+.proposal-tabs{flex-wrap:wrap}
