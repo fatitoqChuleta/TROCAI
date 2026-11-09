@@ -249,14 +249,16 @@ function saveSession(d){
 }
 async function logout(){
   token='';user=null;isAdmin=false;localStorage.removeItem('trocai_access_token');localStorage.removeItem('trocai_user');
-  updateAccount();toast('Você saiu da sua conta.');
+  updateAccount();renderListings();toast('Você saiu da sua conta.');
 }
 function renderListings(){
   const grid=$('#listingGrid'),term=$('#search').value.trim().toLowerCase();
   const rows=listings.filter(x=>(!currentCategory||x.category===currentCategory)&&(!term||`${x.title} ${x.description} ${x.location} ${x.category}`.toLowerCase().includes(term)));
   if(!rows.length){grid.innerHTML='<div class="empty"><span>✦</span><h3>Nenhum anúncio por aqui ainda</h3><p>Experimente outra busca ou seja a primeira pessoa a anunciar.</p></div>';return}
-  grid.innerHTML=rows.map(x=>`<article class="listing"><img src="${esc(x.image_url||'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80')}" alt="${esc(x.title)}" onerror="this.src='https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80'"><div class="listing-body"><span class="tag">${esc(x.category)}</span><h3>${esc(x.title)}</h3><p>⌖ ${esc(x.location)} · ${esc(x.condition)}</p><p><b>Procura por:</b> ${esc(x.wants)}</p>${user&&user.id!==x.owner_id?`<button class="primary propose" data-id="${x.id}" style="width:100%;margin-top:8px">Tenho interesse</button>`:''}</div></article>`).join('');
+  grid.innerHTML=rows.map(x=>`<article class="listing"><img src="${esc(x.image_url||'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80')}" alt="${esc(x.title)}" onerror="this.src='https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80'"><div class="listing-body"><span class="tag">${esc(x.category)}</span><h3>${esc(x.title)}</h3><p>⌖ ${esc(x.location)} · ${esc(x.condition)}</p><p><b>Procura por:</b> ${esc(x.wants)}</p>${user&&user.id!==x.owner_id?`<button class="primary propose" data-id="${x.id}" style="width:100%;margin-top:8px">Tenho interesse</button>`:''}${user&&x.owner_id===user.id?`<div class="listing-owner-actions"><button type="button" class="edit-listing-card" data-id="${x.id}">Editar</button><button type="button" class="delete-listing-card" data-id="${x.id}">Excluir</button></div>`:''}</div></article>`).join('');
   document.querySelectorAll('.propose').forEach(b=>b.onclick=()=>createProposal(b.dataset.id));
+  document.querySelectorAll('.edit-listing-card').forEach(b=>b.onclick=()=>editListingForm(b.dataset.id,'explore'));
+  document.querySelectorAll('.delete-listing-card').forEach(b=>b.onclick=()=>deleteListing(b.dataset.id));
 }
 async function loadListings(){
   try{
@@ -544,19 +546,21 @@ async function loadMyListings(){
     host.querySelectorAll('.delete-listing').forEach(b=>b.onclick=()=>deleteListing(b.dataset.id));
   }catch(e){host.innerHTML=`<div class="empty"><h3>Não foi possível carregar seus anúncios</h3><p>${esc(e.message)}</p></div>`}
 }
-function editListingForm(id){
-  const l=(window.trocaiMyListings||[]).find(x=>String(x.id)===String(id));if(!l)return;
+function editListingForm(id,origin='proposals'){
+  const l=[...(window.trocaiMyListings||[]),...listings].find(x=>String(x.id)===String(id));if(!l)return;
+  if(!user||l.owner_id!==user.id){toast('Somente quem criou o anúncio pode editá-lo.');return}
+  const back=()=>origin==='explore'?closeModal():openProposals('listings');
   const cats=['Livros','Roupas','Calçados','Acessórios','Eletrônicos','Jogos','Material escolar','Colecionáveis','Outros'];
   const conds=['Novo','Quase novo','Usado, mas está bem','Usado, com algumas marcas','Precisa de alguns cuidados'];
   showModal(`<h2>Editar anúncio</h2><p>Atualize as informações do seu anúncio.</p><form id="editListingForm"><label class="field">Título<input name="title" required maxlength="120" value="${esc(l.title)}"></label><label class="field">Categoria<select name="category" required>${cats.map(x=>`<option${x===l.category?' selected':''}>${x}</option>`).join('')}</select></label><label class="field">Estado de conservação<select name="condition" required>${conds.map(x=>`<option${x===l.condition?' selected':''}>${x}</option>`).join('')}</select></label><label class="field">O que você procura em troca?<input name="wants" required maxlength="255" value="${esc(l.wants)}"></label><label class="field">Cidade / região<input name="location" required maxlength="120" value="${esc(l.location)}"></label><label class="field">Descrição<textarea name="description" rows="3" required maxlength="2000">${esc(l.description)}</textarea></label><button class="primary" type="submit">Salvar alterações</button><button class="secondary" type="button" id="cancelEditListing" style="width:100%;margin-top:8px">Cancelar</button></form>`);
-  $('#cancelEditListing').onclick=()=>openProposals('listings');
+  $('#cancelEditListing').onclick=back;
   $('#editListingForm').onsubmit=async e=>{
     e.preventDefault();const f=new FormData(e.currentTarget);const btn=e.currentTarget.querySelector('.primary');btn.disabled=true;
     try{
       const body={title:f.get('title').trim(),category:f.get('category'),condition:f.get('condition'),wants:f.get('wants').trim(),location:f.get('location').trim(),description:f.get('description').trim()};
       const rows=await api(`swap_listings?id=eq.${encodeURIComponent(id)}&owner_id=eq.${encodeURIComponent(user.id)}`,{method:'PATCH',body,headers:{Prefer:'return=representation'}});
       if(!rows?.length){toast(NO_PERMISSION_MSG);btn.disabled=false;return}
-      toast('Anúncio atualizado.');await loadListings();await openProposals('listings');
+      toast('Anúncio atualizado.');await loadListings();await back();
     }catch(err){toast('Não foi possível salvar: '+friendlyDbError(err));btn.disabled=false}
   };
 }
