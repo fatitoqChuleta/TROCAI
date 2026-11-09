@@ -252,3 +252,10 @@
 .listing-owner-actions button{flex:1;padding:9px 12px;border-radius:22px;font-size:12px;font-weight:800;cursor:pointer}
 .edit-listing-card{background:#fff;border:1px solid #e7cbd3;color:var(--wine)}
 .delete-listing-card{background:#fff0f1;border:1px solid #f1cbd2;color:#a12b45}
+
+/* Aviso de responsabilidade na publicação de anúncios */
+.trade-disclaimer{margin:16px 0 4px;padding:14px 15px;border:1px solid #ead7bd;border-radius:14px;background:#fff8ed}
+.trade-disclaimer>b{display:block;color:#8b4d2b;font-size:13px}
+.dialog .trade-disclaimer p{margin:7px 0 0;color:#62584e;font-size:12px;line-height:1.55}
+.trade-disclaimer-check{display:flex;align-items:flex-start;gap:9px;margin-top:11px;padding-top:11px;border-top:1px dashed #ead7bd;color:#684957;font-size:12px;font-weight:700;cursor:pointer}
+.trade-disclaimer-check input{width:auto;flex:none;margin-top:2px;accent-color:var(--wine)}
