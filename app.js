@@ -299,14 +299,16 @@ async function createProposal(id){
 async function openProposals(tab='received'){
   if(!user){authForm();return}
   proposalTab=tab;
-  showModal(`<div class="proposal-heading"><h2>Minhas propostas</h2><p>Acompanhe os interesses recebidos e as propostas que você enviou.</p></div><div class="proposal-tabs"><button class="${tab==='received'?'active':''}" id="receivedTab">Recebidas</button><button class="${tab==='sent'?'active':''}" id="sentTab">Enviadas</button></div><div id="proposalList" class="proposal-list"><p class="proposal-loading">Carregando propostas…</p></div>`);
+  showModal(`<div class="proposal-heading"><h2>Minhas propostas</h2><p>Acompanhe os interesses recebidos e as propostas que você enviou.</p></div><div class="proposal-tabs"><button class="${tab==='received'?'active':''}" id="receivedTab">Recebidas</button><button class="${tab==='sent'?'active':''}" id="sentTab">Enviadas</button><button class="${tab==='listings'?'active':''}" id="listingsTab">Meus anúncios</button></div><div id="proposalList" class="proposal-list"><p class="proposal-loading">Carregando propostas…</p></div>`);
   $('#receivedTab').onclick=()=>openProposals('received');
   $('#sentTab').onclick=()=>openProposals('sent');
+  $('#listingsTab').onclick=()=>openProposals('listings');
   await loadProposals();
 }
 async function loadProposals(){
   const host=$('#proposalList');
   if(!host)return;
+  if(proposalTab==='listings')return loadMyListings();
   try{
     const filter=proposalTab==='received'?`owner_id.eq.${user.id}`:`proposer_id.eq.${user.id}`;
     const rows=await api(`swap_proposals?select=id,listing_id,owner_id,proposer_id,offered_item,status,created_at&or=(${filter})&order=created_at.desc&limit=100`);
@@ -314,6 +316,7 @@ async function loadProposals(){
       host.innerHTML=`<div class="empty proposal-empty"><span>♡</span><h3>${proposalTab==='received'?'Nenhuma proposta recebida ainda':'Você ainda não enviou propostas'}</h3><p>${proposalTab==='received'?'Quando alguém demonstrar interesse em um dos seus anúncios, a proposta aparecerá aqui.':'Quando você demonstrar interesse em um anúncio, poderá acompanhar por aqui.'}</p></div>`;
       return;
     }
+    window.trocaiProposalRows=rows;
     const listingIds=[...new Set(rows.map(x=>x.listing_id))];
     const profileIds=[...new Set(rows.map(x=>proposalTab==='received'?x.proposer_id:x.owner_id))];
     const [listingRows,profileRows]=await Promise.all([
@@ -328,11 +331,17 @@ async function loadProposals(){
       const status=p.status||'pending';
       const statusLabel={pending:'Aguardando resposta',accepted:'Aceita',declined:'Recusada',completed:'Concluída',cancelled:'Cancelada'}[status]||status;
       const canRespond=proposalTab==='received'&&p.owner_id===user.id&&status==='pending';
-      return `<article class="proposal-card"><div class="proposal-card-top"><div><span class="tag">${esc(l?.category||'Proposta')}</span><h3>${esc(l?.title||`Anúncio #${p.listing_id}`)}</h3></div><span class="proposal-status status-${esc(status)}">${esc(statusLabel)}</span></div><p class="proposal-person">${proposalTab==='received'?'Enviada por':'Proposta para'} <b>${esc(person?.display_name||'Usuário do Trocaí')}</b></p><div class="offered-item"><small>${proposalTab==='received'?'O que a pessoa oferece':'O que você ofereceu'}</small><p>${esc(p.offered_item)}</p></div>${canRespond?`<div class="proposal-actions"><button class="accept-proposal" data-id="${p.id}">Aceitar</button><button class="decline-proposal" data-id="${p.id}">Recusar</button></div>`:''}${status==='accepted'?`<div class="proposal-actions"><button class="open-proposal-chat" data-id="${p.id}">Abrir conversa</button></div>`:''}</article>`;
+      const mine=proposalTab==='sent'&&p.proposer_id===user.id;
+      const canEdit=mine&&status==='pending';
+      const canDelete=mine&&['pending','declined','cancelled'].includes(status);
+      const mineActions=(canEdit||canDelete)?`<div class="proposal-actions">${canEdit?`<button class="edit-proposal" data-id="${p.id}">Editar</button>`:''}${canDelete?`<button class="delete-proposal" data-id="${p.id}">Excluir</button>`:''}</div>`:'';
+      return `<article class="proposal-card"><div class="proposal-card-top"><div><span class="tag">${esc(l?.category||'Proposta')}</span><h3>${esc(l?.title||`Anúncio #${p.listing_id}`)}</h3></div><span class="proposal-status status-${esc(status)}">${esc(statusLabel)}</span></div><p class="proposal-person">${proposalTab==='received'?'Enviada por':'Proposta para'} <b>${esc(person?.display_name||'Usuário do Trocaí')}</b></p><div class="offered-item"><small>${proposalTab==='received'?'O que a pessoa oferece':'O que você ofereceu'}</small><p>${esc(p.offered_item)}</p></div>${canRespond?`<div class="proposal-actions"><button class="accept-proposal" data-id="${p.id}">Aceitar</button><button class="decline-proposal" data-id="${p.id}">Recusar</button></div>`:''}${status==='accepted'?`<div class="proposal-actions"><button class="open-proposal-chat" data-id="${p.id}">Abrir conversa</button></div>`:''}${mineActions}</article>`;
     }).join('');
     host.querySelectorAll('.accept-proposal').forEach(b=>b.onclick=()=>respondProposal(b.dataset.id,'accepted'));
     host.querySelectorAll('.decline-proposal').forEach(b=>b.onclick=()=>respondProposal(b.dataset.id,'declined'));
     host.querySelectorAll('.open-proposal-chat').forEach(b=>b.onclick=()=>openChatForProposal(b.dataset.id));
+    host.querySelectorAll('.edit-proposal').forEach(b=>b.onclick=()=>editProposal(b.dataset.id));
+    host.querySelectorAll('.delete-proposal').forEach(b=>b.onclick=()=>deleteProposal(b.dataset.id));
   }catch(e){
     host.innerHTML=`<div class="empty"><h3>Não foi possível carregar as propostas</h3><p>${esc(e.message)}</p><p>Confira se a tabela swap_proposals e as permissões de leitura estão configuradas.</p></div>`;
   }
@@ -501,6 +510,64 @@ async function markNotificationRead(id,openProposal){
   }catch(e){toast('Não foi possível atualizar a notificação: '+e.message)}
 }
 
+const NO_PERMISSION_MSG='Nada foi alterado. Provavelmente falta a permissão (RLS) no Supabase — rode o arquivo supabase-editar-excluir.sql.';
+function friendlyDbError(e){return /foreign key/i.test(e.message)?'Este item já tem conversas ou notificações vinculadas e não pode ser excluído.':e.message}
+async function editProposal(id){
+  const current=(window.trocaiProposalRows||[]).find(p=>String(p.id)===String(id));
+  if(!current)return;
+  const text=prompt('Edite o que você está oferecendo:',current.offered_item||'');
+  if(text===null)return;
+  if(!text.trim()){toast('Escreva uma mensagem antes de salvar.');return}
+  if(text.trim()===(current.offered_item||'').trim())return;
+  try{
+    const rows=await api(`swap_proposals?id=eq.${encodeURIComponent(id)}&proposer_id=eq.${encodeURIComponent(user.id)}&status=eq.pending`,{method:'PATCH',body:{offered_item:text.trim(),updated_at:new Date().toISOString()},headers:{Prefer:'return=representation'}});
+    if(!rows?.length){toast(NO_PERMISSION_MSG);return}
+    toast('Proposta atualizada.');await loadProposals();
+  }catch(e){toast('Não foi possível editar a proposta: '+friendlyDbError(e))}
+}
+async function deleteProposal(id){
+  if(!confirm('Excluir esta proposta? Esta ação não pode ser desfeita.'))return;
+  try{
+    const rows=await api(`swap_proposals?id=eq.${encodeURIComponent(id)}&proposer_id=eq.${encodeURIComponent(user.id)}`,{method:'DELETE',headers:{Prefer:'return=representation'}});
+    if(!rows?.length){toast(NO_PERMISSION_MSG);return}
+    toast('Proposta excluída.');await loadProposals();
+  }catch(e){toast('Não foi possível excluir a proposta: '+friendlyDbError(e))}
+}
+async function loadMyListings(){
+  const host=$('#proposalList');if(!host)return;
+  try{
+    const rows=await api(`swap_listings?select=id,owner_id,title,category,description,condition,wants,location,image_url,status,created_at&owner_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc&limit=100`);
+    window.trocaiMyListings=rows;
+    if(!rows.length){host.innerHTML='<div class="empty proposal-empty"><span>✦</span><h3>Você ainda não publicou anúncios</h3><p>Use o botão “Anunciar” para publicar o primeiro.</p></div>';return}
+    host.innerHTML=rows.map(l=>`<article class="proposal-card"><div class="proposal-card-top"><div><span class="tag">${esc(l.category)}</span><h3>${esc(l.title)}</h3></div><span class="proposal-status status-${esc(l.status||'active')}">${l.status==='active'||!l.status?'Publicado':esc(l.status)}</span></div><p class="proposal-person">⌖ ${esc(l.location)} · ${esc(l.condition)}</p><div class="offered-item"><small>O que você procura em troca</small><p>${esc(l.wants)}</p></div><div class="proposal-actions"><button class="edit-listing" data-id="${l.id}">Editar</button><button class="delete-listing" data-id="${l.id}">Excluir</button></div></article>`).join('');
+    host.querySelectorAll('.edit-listing').forEach(b=>b.onclick=()=>editListingForm(b.dataset.id));
+    host.querySelectorAll('.delete-listing').forEach(b=>b.onclick=()=>deleteListing(b.dataset.id));
+  }catch(e){host.innerHTML=`<div class="empty"><h3>Não foi possível carregar seus anúncios</h3><p>${esc(e.message)}</p></div>`}
+}
+function editListingForm(id){
+  const l=(window.trocaiMyListings||[]).find(x=>String(x.id)===String(id));if(!l)return;
+  const cats=['Livros','Roupas','Calçados','Acessórios','Eletrônicos','Jogos','Material escolar','Colecionáveis','Outros'];
+  const conds=['Novo','Quase novo','Usado, mas está bem','Usado, com algumas marcas','Precisa de alguns cuidados'];
+  showModal(`<h2>Editar anúncio</h2><p>Atualize as informações do seu anúncio.</p><form id="editListingForm"><label class="field">Título<input name="title" required maxlength="120" value="${esc(l.title)}"></label><label class="field">Categoria<select name="category" required>${cats.map(x=>`<option${x===l.category?' selected':''}>${x}</option>`).join('')}</select></label><label class="field">Estado de conservação<select name="condition" required>${conds.map(x=>`<option${x===l.condition?' selected':''}>${x}</option>`).join('')}</select></label><label class="field">O que você procura em troca?<input name="wants" required maxlength="255" value="${esc(l.wants)}"></label><label class="field">Cidade / região<input name="location" required maxlength="120" value="${esc(l.location)}"></label><label class="field">Descrição<textarea name="description" rows="3" required maxlength="2000">${esc(l.description)}</textarea></label><button class="primary" type="submit">Salvar alterações</button><button class="secondary" type="button" id="cancelEditListing" style="width:100%;margin-top:8px">Cancelar</button></form>`);
+  $('#cancelEditListing').onclick=()=>openProposals('listings');
+  $('#editListingForm').onsubmit=async e=>{
+    e.preventDefault();const f=new FormData(e.currentTarget);const btn=e.currentTarget.querySelector('.primary');btn.disabled=true;
+    try{
+      const body={title:f.get('title').trim(),category:f.get('category'),condition:f.get('condition'),wants:f.get('wants').trim(),location:f.get('location').trim(),description:f.get('description').trim()};
+      const rows=await api(`swap_listings?id=eq.${encodeURIComponent(id)}&owner_id=eq.${encodeURIComponent(user.id)}`,{method:'PATCH',body,headers:{Prefer:'return=representation'}});
+      if(!rows?.length){toast(NO_PERMISSION_MSG);btn.disabled=false;return}
+      toast('Anúncio atualizado.');await loadListings();await openProposals('listings');
+    }catch(err){toast('Não foi possível salvar: '+friendlyDbError(err));btn.disabled=false}
+  };
+}
+async function deleteListing(id){
+  if(!confirm('Excluir este anúncio? Esta ação não pode ser desfeita.'))return;
+  try{
+    const rows=await api(`swap_listings?id=eq.${encodeURIComponent(id)}&owner_id=eq.${encodeURIComponent(user.id)}`,{method:'DELETE',headers:{Prefer:'return=representation'}});
+    if(!rows?.length){toast(NO_PERMISSION_MSG);return}
+    toast('Anúncio excluído.');await loadListings();await loadProposals();
+  }catch(e){toast('Não foi possível excluir o anúncio: '+friendlyDbError(e))}
+}
 async function respondProposal(id,status){
   const action=status==='accepted'?'aceitar':'recusar';
   if(!confirm(`Tem certeza de que deseja ${action} esta proposta?`))return;
