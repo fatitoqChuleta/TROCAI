@@ -246,3 +246,9 @@
 .edit-proposal,.edit-listing{background:#fff;border:1px solid #e7cbd3;color:var(--wine)}
 .delete-proposal,.delete-listing{background:#fff0f1;border:1px solid #f1cbd2;color:#a12b45}
 .proposal-tabs{flex-wrap:wrap}
+
+/* Editar / excluir direto nos cards do Explorar (somente dono) */
+.listing-owner-actions{display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.listing-owner-actions button{flex:1;padding:9px 12px;border-radius:22px;font-size:12px;font-weight:800;cursor:pointer}
+.edit-listing-card{background:#fff;border:1px solid #e7cbd3;color:var(--wine)}
+.delete-listing-card{background:#fff0f1;border:1px solid #f1cbd2;color:#a12b45}
