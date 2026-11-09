@@ -234,3 +234,10 @@
 .admin-dialog .admin-ad-card{grid-template-columns:150px minmax(0,1fr);align-items:start}
 .admin-dialog .admin-ad-card>img{width:150px;height:180px}
 @media(max-width:600px){.dialog.admin-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:28px 14px 20px;border-radius:17px}.admin-dialog .admin-panel-shortcuts{align-items:flex-start}.admin-dialog .admin-panel-shortcuts button{width:100%}.admin-dialog .admin-ad-card{grid-template-columns:88px minmax(0,1fr)}.admin-dialog .admin-ad-card>img{width:88px;height:116px}.admin-dialog .admin-ad-actions{flex-direction:column}.admin-dialog .admin-ad-actions button{width:100%}}
+
+
+/* Abas do painel administrativo (Usuários | Publicidade) */
+.admin-tabs{display:flex;gap:8px;margin:18px 0 4px;padding:6px;border:1px solid var(--line);border-radius:16px;background:#fff;position:sticky;top:-32px;z-index:3}
+.admin-tab{flex:1;padding:11px 14px;border:0;border-radius:11px;background:transparent;color:var(--muted);font:800 13px 'DM Sans',sans-serif;cursor:pointer}
+.admin-tab.active{background:var(--wine);color:#fff}
+.admin-pane[hidden]{display:none!important}
