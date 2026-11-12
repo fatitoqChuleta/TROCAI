@@ -89,9 +89,9 @@ function openAdminPanel(){
   showModal(`<div class="admin-panel"><span class="eyebrow">ÁREA RESTRITA</span><h2>Painel administrativo</h2><p>Gerencie informações da comunidade Trocaí.</p>
   <div class="admin-tabs" role="tablist"><button type="button" class="admin-tab active" role="tab" aria-selected="true" data-admin-tab="users">Usuários</button><button type="button" class="admin-tab" role="tab" aria-selected="false" data-admin-tab="ads">Publicidade</button></div>
   <div class="admin-pane" data-admin-pane="users"><section class="admin-users"><div class="admin-users-head"><div><h3>Usuários cadastrados</h3><p>Consulta protegida de perfis e contas.</p></div><button class="secondary admin-refresh" id="refreshAdminUsers" type="button">Atualizar</button></div><div class="admin-user-stats"><div><small>Total de usuários</small><strong id="adminUserTotal">—</strong></div><div><small>Administradores</small><strong id="adminAdminTotal">—</strong></div></div><label class="admin-search-label" for="adminUserSearch">Buscar usuário</label><input id="adminUserSearch" class="admin-user-search" type="search" placeholder="Nome, e-mail ou cidade"><div id="adminUsersContent" class="admin-users-content"><p class="admin-loading">Carregando usuários...</p></div><p class="admin-footnote">Esta tela é somente para consulta. Nenhuma conta pode ser alterada ou excluída por aqui.</p></section></div>
-  <div class="admin-pane" data-admin-pane="ads" hidden><section class="admin-ads" id="adminAdsSection"><div class="admin-section-heading"><div><h3>Gerenciamento de publicidade</h3><p>Cadastre banners que aparecem nas laterais do site em computadores.</p></div><button class="secondary" id="refreshAdminAds" type="button">Atualizar</button></div>
+  <div class="admin-pane" data-admin-pane="ads" hidden><section class="admin-ads" id="adminAdsSection"><div class="admin-section-heading"><div><h3>Gerenciamento de publicidade</h3><p>Cadastre banners que aparecem nas laterais do site em computadores e dentro da página no celular.</p></div><button class="secondary" id="refreshAdminAds" type="button">Atualizar</button></div>
   <form id="adminAdForm" class="admin-ad-form"><label class="field">Imagem da publicidade<input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required></label><label class="field">Link aberto ao clicar<input name="target_url" type="url" required placeholder="https://exemplo.com"></label><label class="field">Texto alternativo (opcional)<input name="alt_text" maxlength="120" placeholder="Descrição da imagem"></label><button class="primary" type="submit">＋ Adicionar publicidade</button><small>Imagens JPG, PNG, WEBP ou GIF de até 5 MB.</small></form>
-  <div class="admin-ad-list-heading"><h4>Publicidades cadastradas</h4><span id="adminAdCount">—</span></div><div id="adminAdsContent"><p class="admin-loading">Carregando publicidades...</p></div><p class="admin-footnote">A cada nova visita ou atualização, o site escolhe banners ativos aleatoriamente. As laterais são ocultadas em telas pequenas para não atrapalhar a navegação.</p></section></div></div>`);
+  <div class="admin-ad-list-heading"><h4>Publicidades cadastradas</h4><span id="adminAdCount">—</span></div><div id="adminAdsContent"><p class="admin-loading">Carregando publicidades...</p></div><p class="admin-footnote">A cada nova visita ou atualização, o site escolhe banners ativos aleatoriamente. Em telas pequenas, os banners saem das laterais e aparecem entre as seções da página, sem cobrir o conteúdo.</p></section></div></div>`);
   $('#refreshAdminUsers').onclick=loadAdminUsers;
   $('#adminUserSearch').oninput=()=>renderAdminUsers(window.trocaiAdminUsers||[]);
   $('#refreshAdminAds').onclick=loadAdminAds;
@@ -179,7 +179,7 @@ async function loadPublicAds(){
   try{const response=await fetch('/api/ads',{cache:'no-store'});if(!response.ok)return;const data=await response.json();const ads=Array.isArray(data.ads)?data.ads.filter(ad=>ad.active&&ad.image_url&&ad.target_url):[];renderSideAds(ads)}catch(error){console.warn('Publicidade indisponível:',error.message)}
 }
 function renderSideAds(ads){
-  document.querySelectorAll('.trocai-side-ad').forEach(node=>node.remove());if(!ads.length)return;
+  document.querySelectorAll('.trocai-side-ad,.trocai-inline-ad').forEach(node=>node.remove());if(!ads.length)return;
   const pool=[...ads];for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
   const selected=pool.slice(0,Math.min(2,pool.length));
   // Evita repetir exatamente a mesma combinação/posição no próximo carregamento.
@@ -207,6 +207,36 @@ function renderSideAds(ads){
       rail.appendChild(caption);
     }
     document.body.appendChild(rail);
+  });
+  // Versão para celular e telas menores: as laterais ficam ocultas abaixo de 1450px,
+  // então os mesmos anúncios aparecem dentro da página, entre as seções.
+  const inlineSpots=[document.querySelector('.stats'),document.querySelector('#como-funciona')];
+  selected.forEach((ad,index)=>{
+    const spot=inlineSpots[index];if(!spot)return;
+    const box=document.createElement('aside');
+    box.className='trocai-inline-ad';
+    box.setAttribute('aria-label','Publicidade');
+    const label=document.createElement('span');
+    label.className='trocai-inline-ad-label';
+    label.textContent='Publicidade';
+    const link=document.createElement('a');
+    link.href=ad.target_url;
+    link.target='_blank';
+    link.rel='noopener noreferrer sponsored';
+    link.setAttribute('aria-label',ad.alt_text||'Publicidade — abre em nova aba');
+    const img=document.createElement('img');
+    img.src=ad.image_url;
+    img.alt=ad.alt_text||'Publicidade';
+    img.loading='lazy';
+    link.appendChild(img);
+    box.append(label,link);
+    if(ad.alt_text){
+      const caption=document.createElement('p');
+      caption.className='trocai-side-ad-caption';
+      caption.textContent=ad.alt_text;
+      box.appendChild(caption);
+    }
+    spot.after(box);
   });
 }
 
